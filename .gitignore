@@ -1,0 +1,68 @@
+# ============ Go 项目通用 ============
+# 二进制文件
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.app
+
+# 测试文件
+*.test
+*.out
+*.coverage
+
+# 依赖目录
+vendor/
+
+# Go 工作区文件
+go.work
+go.work.sum
+
+# 编译输出
+bin/
+dist/
+build/
+
+# ============ macOS 系统文件 ============
+# Finder 产生的隐藏文件
+.DS_Store
+._*
+
+# 缩略图缓存
+.thumbnails
+
+# 临时文件
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+
+# 日志文件（可选）
+*.log
+
+# ============ 环境变量/敏感信息 ============
+# 本地配置（不要提交密码、密钥等）
+.env
+*.env.local
+*.env.development.local
+
+# ============ IDE/编辑器 ============
+# VS Code
+.vscode/
+*.code-workspace
+
+# GoLand/IntelliJ
+.idea/
+*.iml
+
+# Vim
+*.swp
+*.swo
+
+# ============ 短链接项目特有（可选） ============
+# 如果以后加数据库，忽略本地数据文件
+*.db
+*.sqlite
+data/
