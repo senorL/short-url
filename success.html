@@ -1,14 +1,6 @@
-<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Document</title>
-</head>
-<body>
-  <h1>生成成功</h1>
-  <p>完整的访问链接是： <a href="http://localhost:8080/{{.ShortCode}}">http://localhost:8080/{{.ShortCode}}</a></p>
-  <br>
-  <a href="/">返回继续生成</a>
-</body>
-</html>
+{{ define "content"}}
+<h1>生成成功</h1>
+<p>完整的访问链接是： <a href="http://localhost:8080/{{.ShortCode}}">http://localhost:8080/{{.ShortCode}}</a></p>
+<br>
+<a href="/">返回继续生成</a>
+{{ end }}

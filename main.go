@@ -22,13 +22,13 @@ func main() {
 
 		shortCode := fmt.Sprintf("%d", count)
 		urlSwitch[shortCode] = url
-		t, _ := template.ParseFiles("success.html")
+		t, _ := template.ParseFiles("base.html", "success.html")
 
 		data := ResultData{
 			ShortCode: shortCode,
 			Original:  url,
 		}
-		t.Execute(w, data)
+		t.ExecuteTemplate(w, "base.html", data)
 	})
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
@@ -36,8 +36,8 @@ func main() {
 
 		if urlPath == "/" {
 			funcMap := template.FuncMap{"turl": TruncateURL}
-			t, _ := template.New("index.html").Funcs(funcMap).ParseFiles("index.html")
-			t.Execute(w, urlSwitch)
+			t, _ := template.New("index").Funcs(funcMap).ParseFiles("base.html", "index.html")
+			t.ExecuteTemplate(w, "base.html", urlSwitch)
 		} else {
 			shortCode := urlPath[1:]
 
