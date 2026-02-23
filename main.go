@@ -4,54 +4,53 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
+	"time"
+
+	"github.com/gin-gonic/gin"
 )
 
 var urlSwitch = make(map[string]string)
 var count = 0
 
-type ResultData struct {
-	ShortCode string
-	Original  string
-}
-
 func main() {
+	r := gin.Default()
 
-	http.HandleFunc("/shorten", func(w http.ResponseWriter, r *http.Request) {
-		url := r.FormValue("url")
+	r.NoRoute(func(c *gin.Context) {
+		c.String(http.StatusNotFound, "页面迷路啦～")
+	})
+
+	r.Use(StatCost())
+
+	r.SetFuncMap(template.FuncMap{
+		"turl": TruncateURL,
+	})
+
+	r.LoadHTMLGlob("*.html")
+
+	r.GET("/", func(c *gin.Context) {
+		c.HTML(http.StatusOK, "index.html", urlSwitch)
+	})
+	r.POST("/shorten", func(c *gin.Context) {
+		url := c.PostForm("url")
 		count++
+		shortcode := fmt.Sprintf("%d", count)
+		urlSwitch[shortcode] = url
+		c.HTML(http.StatusOK, "success.html", shortcode)
 
-		shortCode := fmt.Sprintf("%d", count)
-		urlSwitch[shortCode] = url
-		t, _ := template.ParseFiles("base.html", "success.html")
-
-		data := ResultData{
-			ShortCode: shortCode,
-			Original:  url,
-		}
-		t.ExecuteTemplate(w, "base.html", data)
 	})
-
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		urlPath := r.URL.Path
-
-		if urlPath == "/" {
-			funcMap := template.FuncMap{"turl": TruncateURL}
-			t, _ := template.New("index").Funcs(funcMap).ParseFiles("base.html", "index.html")
-			t.ExecuteTemplate(w, "base.html", urlSwitch)
+	r.GET("/:shortcode", func(c *gin.Context) {
+		// shortcode 转换成 url
+		shortcode := c.Param("shortcode")
+		url, ok := urlSwitch[shortcode]
+		if ok {
+			c.Redirect(http.StatusFound, url)
 		} else {
-			shortCode := urlPath[1:]
-
-			newUrl, ok := urlSwitch[shortCode]
-			if ok {
-				http.Redirect(w, r, newUrl, http.StatusFound)
-			} else {
-				http.NotFound(w, r)
-			}
+			c.String(http.StatusNotFound, "链接不存在")
 		}
 
 	})
 
-	http.ListenAndServe(":8080", nil)
+	r.Run()
 }
 
 func TruncateURL(url string) string {
@@ -59,4 +58,14 @@ func TruncateURL(url string) string {
 		url = url[:30] + "..."
 	}
 	return url
+}
+
+func StatCost() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		start := time.Now()
+		c.Next()
+		cost := time.Since(start)
+
+		fmt.Printf("请求 %s | 耗时 %v\n", c.Request.URL.Path, cost)
+	}
 }
