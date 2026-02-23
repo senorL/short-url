@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"math/rand"
 	"net/http"
@@ -66,12 +67,16 @@ func main() {
 
 	})
 	r.GET("/:shortcode", func(c *gin.Context) {
+		ctx, cancel := context.WithTimeout(c.Request.Context(), 500*time.Millisecond)
+		defer cancel()
+
 		// shortcode 转换成 url
 		shortcode := c.Param("shortcode")
 		var urlRecord UrlRecord
-		result := db.Where("short_code = ?", shortcode).First(&urlRecord)
+		result := db.WithContext(ctx).Where("short_code = ?", shortcode).First(&urlRecord)
 		if result.Error != nil {
 			c.String(http.StatusNotFound, "404页面迷路啦～")
+			return
 		}
 		c.Redirect(http.StatusFound, urlRecord.OriginalUrl)
 	})
