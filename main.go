@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"html/template"
+	"math/rand"
 	"net/http"
 	"time"
 
@@ -11,8 +12,7 @@ import (
 	"gorm.io/gorm"
 )
 
-// var urlSwitch = make(map[string]string)
-var count = 0
+const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 
 type UrlRecord struct {
 	gorm.Model
@@ -31,7 +31,7 @@ func main() {
 	db.AutoMigrate(&UrlRecord{})
 
 	r.NoRoute(func(c *gin.Context) {
-		c.String(http.StatusNotFound, "页面迷路啦～")
+		c.String(http.StatusNotFound, "404页面迷路啦～")
 	})
 
 	r.Use(StatCost())
@@ -49,8 +49,7 @@ func main() {
 	})
 	r.POST("/shorten", func(c *gin.Context) {
 		url := c.PostForm("url")
-		count++
-		shortcode := fmt.Sprintf("%d", count)
+		shortcode := string(GenerateRandomCode(6))
 		urlRecord := UrlRecord{OriginalUrl: url, ShortCode: shortcode}
 		db.Create(&urlRecord)
 		c.HTML(http.StatusOK, "success.html", shortcode)
@@ -60,7 +59,10 @@ func main() {
 		// shortcode 转换成 url
 		shortcode := c.Param("shortcode")
 		var urlRecord UrlRecord
-		db.Where("short_code = ?", shortcode).First(&urlRecord)
+		result := db.Where("short_code = ?", shortcode).First(&urlRecord)
+		if result.Error != nil {
+			c.String(http.StatusNotFound, "404页面迷路啦～")
+		}
 		c.Redirect(http.StatusFound, urlRecord.OriginalUrl)
 	})
 
@@ -82,4 +84,12 @@ func StatCost() gin.HandlerFunc {
 
 		fmt.Printf("请求 %s | 耗时 %v\n", c.Request.URL.Path, cost)
 	}
+}
+
+func GenerateRandomCode(length int) string {
+	code := make([]byte, length)
+	for i := range code {
+		code[i] = charset[rand.Intn(len(charset))]
+	}
+	return string(code)
 }
