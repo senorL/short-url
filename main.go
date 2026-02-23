@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"html/template"
 	"math/rand"
 	"net/http"
 	"time"
@@ -18,6 +17,10 @@ type UrlRecord struct {
 	gorm.Model
 	OriginalUrl string
 	ShortCode   string `gorm:"unique;not null"`
+}
+
+type URL struct {
+	Url string `form:"url" json:"url" binding:"required"`
 }
 
 func main() {
@@ -36,23 +39,30 @@ func main() {
 
 	r.Use(StatCost())
 
-	r.SetFuncMap(template.FuncMap{
-		"turl": TruncateURL,
-	})
-
-	r.LoadHTMLGlob("*.html")
-
-	r.GET("/", func(c *gin.Context) {
+	r.GET("/api/links", func(c *gin.Context) {
 		var urlRecords []UrlRecord
 		db.Find(&urlRecords)
-		c.HTML(http.StatusOK, "index.html", urlRecords)
+		c.JSON(http.StatusOK, gin.H{
+			"code": http.StatusOK,
+			"msg":  "success",
+			"data": urlRecords,
+		})
 	})
 	r.POST("/shorten", func(c *gin.Context) {
-		url := c.PostForm("url")
+		var urlJson URL
+		err := c.ShouldBindJSON(&urlJson)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
 		shortcode := string(GenerateRandomCode(6))
-		urlRecord := UrlRecord{OriginalUrl: url, ShortCode: shortcode}
+		urlRecord := UrlRecord{OriginalUrl: urlJson.Url, ShortCode: shortcode}
 		db.Create(&urlRecord)
-		c.HTML(http.StatusOK, "success.html", shortcode)
+		c.JSON(http.StatusOK, gin.H{
+			"code":      http.StatusOK,
+			"msg":       "success",
+			"shortcode": shortcode,
+		})
 
 	})
 	r.GET("/:shortcode", func(c *gin.Context) {
@@ -67,13 +77,6 @@ func main() {
 	})
 
 	r.Run()
-}
-
-func TruncateURL(url string) string {
-	if len(url) > 30 {
-		url = url[:30] + "..."
-	}
-	return url
 }
 
 func StatCost() gin.HandlerFunc {
