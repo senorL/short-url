@@ -12,8 +12,8 @@
     </form>
     <br>
     <ul>
-      {{ range $key, $val := . }}
-      <li>原链接: {{$val | turl}}；转换短链接: http://localhost:8080/{{$key}}</li>
+      {{ range . }}
+      <li>原链接: {{.OriginalUrl | turl}}；转换短链接: http://localhost:8080/{{ .ShortCode }}</li>
       {{ end }}
     </ul>
 </body>
