@@ -27,6 +27,12 @@ func main() {
 	}
 
 	db.AutoMigrate(&model.UrlRecord{})
+	db.AutoMigrate(&model.IDGenerator{})
+
+	db.FirstOrCreate(&model.IDGenerator{
+		MaxID: 0,
+		Step:  1000,
+	}, model.IDGenerator{Model: gorm.Model{ID: 1}})
 
 	urlHandler := &api.URLHandler{
 		DB:  db,
