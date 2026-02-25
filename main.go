@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"slices"
@@ -72,12 +73,14 @@ func main() {
 		}
 
 		shortcode := Base62Encode(uint64(id))
+
 		urlRecord := UrlRecord{OriginalUrl: urlJson.Url, ShortCode: shortcode}
 		if err := db.Create(&urlRecord).Error; err != nil {
 			fmt.Println("数据库保存失败:", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "数据库保存失败"})
 			return
 		}
+		rdb.Set(c.Request.Context(), "url:"+shortcode, urlJson.Url, 24*time.Hour)
 		c.JSON(http.StatusOK, gin.H{
 			"code":      http.StatusOK,
 			"msg":       "success",
@@ -89,15 +92,29 @@ func main() {
 		ctx, cancel := context.WithTimeout(c.Request.Context(), 500*time.Millisecond)
 		defer cancel()
 
-		// shortcode 转换成 url
 		shortcode := c.Param("shortcode")
-		var urlRecord UrlRecord
-		result := db.WithContext(ctx).Where("short_code = ?", shortcode).First(&urlRecord)
-		if result.Error != nil {
-			c.String(http.StatusNotFound, "404页面迷路啦～")
-			return
+
+		url, err := rdb.Get(ctx, "url:"+shortcode).Result()
+		if err == nil {
+			if url == "NULL" {
+				c.String(http.StatusNotFound, "404页面迷路啦～")
+				return
+			} else {
+				c.Redirect(http.StatusFound, url)
+			}
+		} else {
+			var urlRecord UrlRecord
+			result := db.WithContext(ctx).Where("short_code = ?", shortcode).First(&urlRecord)
+			if result.Error != nil {
+				if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+					rdb.Set(ctx, "url:"+shortcode, "NULL", 1*time.Minute)
+				}
+				c.String(http.StatusNotFound, "404页面迷路啦～")
+				return
+			}
+			rdb.Set(ctx, "url:"+shortcode, urlRecord.OriginalUrl, 24*time.Hour)
+			c.Redirect(http.StatusFound, urlRecord.OriginalUrl)
 		}
-		c.Redirect(http.StatusFound, urlRecord.OriginalUrl)
 	})
 
 	r.Run()
