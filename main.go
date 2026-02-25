@@ -3,16 +3,17 @@ package main
 import (
 	"context"
 	"fmt"
-	"math/rand"
 	"net/http"
+	"slices"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/redis/go-redis/v9"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
 
-const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+const base62Charset = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
 type UrlRecord struct {
 	gorm.Model
@@ -26,6 +27,14 @@ type URL struct {
 
 func main() {
 	r := gin.Default()
+
+	rdb := redis.NewClient(&redis.Options{
+		Addr:     "localhost:6379",
+		Password: "",
+		DB:       0,
+		Protocol: 2,
+	})
+	defer rdb.Close()
 
 	db, err := gorm.Open(sqlite.Open("short_url.db"), &gorm.Config{})
 	if err != nil {
@@ -51,14 +60,24 @@ func main() {
 	})
 	r.POST("/shorten", func(c *gin.Context) {
 		var urlJson URL
-		err := c.ShouldBindJSON(&urlJson)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		if errJson := c.ShouldBindJSON(&urlJson); errJson != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": errJson.Error()})
 			return
 		}
-		shortcode := string(GenerateRandomCode(6))
+		id, err := rdb.Incr(c.Request.Context(), "short_url_id").Result()
+		if err != nil {
+			fmt.Println("Redis 发号失败:", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Redis发号器故障"})
+			return
+		}
+
+		shortcode := Base62Encode(uint64(id))
 		urlRecord := UrlRecord{OriginalUrl: urlJson.Url, ShortCode: shortcode}
-		db.Create(&urlRecord)
+		if err := db.Create(&urlRecord).Error; err != nil {
+			fmt.Println("数据库保存失败:", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "数据库保存失败"})
+			return
+		}
 		c.JSON(http.StatusOK, gin.H{
 			"code":      http.StatusOK,
 			"msg":       "success",
@@ -94,10 +113,16 @@ func StatCost() gin.HandlerFunc {
 	}
 }
 
-func GenerateRandomCode(length int) string {
-	code := make([]byte, length)
-	for i := range code {
-		code[i] = charset[rand.Intn(len(charset))]
+func Base62Encode(id uint64) string {
+	var code []byte
+	if id == 0 {
+		code = append(code, '0')
+		return string(code)
 	}
+	for id > 0 {
+		code = append(code, base62Charset[id%62])
+		id /= 62
+	}
+	slices.Reverse(code)
 	return string(code)
 }
