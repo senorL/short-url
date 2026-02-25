@@ -37,7 +37,7 @@ cd short-url
 go mod tidy
 
 # 运行服务 (默认监听 8080 端口)
-go run main.go
+go run cmd/server/main.go
 
 ```
 
