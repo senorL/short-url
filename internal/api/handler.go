@@ -1,0 +1,88 @@
+package api
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"net/http"
+	"short-url/internal/model"
+	"short-url/pkg/base62"
+	"time"
+
+	"github.com/gin-gonic/gin"
+	"github.com/redis/go-redis/v9"
+	"gorm.io/gorm"
+)
+
+type URLHandler struct {
+	DB  *gorm.DB
+	RDB *redis.Client
+}
+
+func (h *URLHandler) ShortenURL(c *gin.Context) {
+	var urlJson model.URL
+	if errJson := c.ShouldBindJSON(&urlJson); errJson != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": errJson.Error()})
+		return
+	}
+	id, err := h.RDB.Incr(c.Request.Context(), "short_url_id").Result()
+	if err != nil {
+		fmt.Println("Redis 发号失败:", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Redis发号器故障"})
+		return
+	}
+
+	shortcode := base62.Base62Encode(uint64(id))
+
+	urlRecord := model.UrlRecord{OriginalUrl: urlJson.Url, ShortCode: shortcode}
+	if err := h.DB.Create(&urlRecord).Error; err != nil {
+		fmt.Println("数据库保存失败:", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "数据库保存失败"})
+		return
+	}
+	h.RDB.Set(c.Request.Context(), "url:"+shortcode, urlJson.Url, 24*time.Hour)
+	c.JSON(http.StatusOK, gin.H{
+		"code":      http.StatusOK,
+		"msg":       "success",
+		"shortcode": shortcode,
+	})
+}
+
+func (h *URLHandler) Redirect(c *gin.Context) {
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 500*time.Millisecond)
+	defer cancel()
+
+	shortcode := c.Param("shortcode")
+
+	url, err := h.RDB.Get(ctx, "url:"+shortcode).Result()
+	if err == nil {
+		if url == "NULL" {
+			c.String(http.StatusNotFound, "404页面迷路啦～")
+			return
+		}
+
+		c.Redirect(http.StatusFound, url)
+	} else {
+		var urlRecord model.UrlRecord
+		result := h.DB.WithContext(ctx).Where("short_code = ?", shortcode).First(&urlRecord)
+		if result.Error != nil {
+			if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+				h.RDB.Set(ctx, "url:"+shortcode, "NULL", 1*time.Minute)
+			}
+			c.String(http.StatusNotFound, "404页面迷路啦～")
+			return
+		}
+		h.RDB.Set(ctx, "url:"+shortcode, urlRecord.OriginalUrl, 24*time.Hour)
+		c.Redirect(http.StatusFound, urlRecord.OriginalUrl)
+	}
+}
+
+func (h *URLHandler) GetLinks(c *gin.Context) {
+	var urlRecords []model.UrlRecord
+	h.DB.Find(&urlRecords)
+	c.JSON(http.StatusOK, gin.H{
+		"code": http.StatusOK,
+		"msg":  "success",
+		"data": urlRecords,
+	})
+}
