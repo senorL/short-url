@@ -6,6 +6,7 @@ import (
 	"short-url/internal/middleware"
 	"short-url/internal/model"
 	"short-url/internal/service"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
@@ -54,7 +55,7 @@ func main() {
 	r.Use(middleware.StatCost())
 
 	r.GET("/api/links", urlHandler.GetLinks)
-	r.POST("/shorten", urlHandler.ShortenURL)
+	r.POST("/shorten", middleware.RateLimit(rdb, 10, 5*time.Second), urlHandler.ShortenURL)
 	r.GET("/:shortcode", urlHandler.Redirect)
 
 	r.Run()
