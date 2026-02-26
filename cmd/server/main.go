@@ -11,6 +11,7 @@ import (
 	"github.com/bits-and-blooms/bloom/v3"
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
+	ginprometheus "github.com/zsais/go-gin-prometheus"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
@@ -57,6 +58,10 @@ func main() {
 	}
 
 	r := gin.Default()
+
+	p := ginprometheus.NewPrometheus("gin")
+	p.Use(r)
+
 	r.NoRoute(func(c *gin.Context) {
 		c.String(http.StatusNotFound, "404页面迷路啦～")
 	})
