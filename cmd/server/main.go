@@ -8,8 +8,10 @@ import (
 	"short-url/internal/service"
 	"time"
 
+	"github.com/bits-and-blooms/bloom/v3"
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
+	"golang.org/x/sync/singleflight"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
@@ -41,10 +43,18 @@ func main() {
 		panic("发号器启动失败" + err.Error())
 	}
 
+	bloomFilter := bloom.NewWithEstimates(10000000, 0.0001)
+	var allShortCodes []string
+	db.Model(&model.UrlRecord{}).Pluck("short_code", &allShortCodes)
+	for _, code := range allShortCodes {
+		bloomFilter.AddString(code)
+	}
+
 	urlHandler := &api.URLHandler{
-		DB:   db,
-		RDB:  rdb,
-		Leaf: leafNode,
+		DB:         db,
+		RDB:        rdb,
+		Leaf:       leafNode,
+		BloomFiler: bloomFilter,
 	}
 
 	r := gin.Default()

@@ -10,6 +10,7 @@ import (
 	"short-url/pkg/base62"
 	"time"
 
+	"github.com/bits-and-blooms/bloom/v3"
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
 	"golang.org/x/sync/singleflight"
@@ -17,10 +18,11 @@ import (
 )
 
 type URLHandler struct {
-	DB   *gorm.DB
-	RDB  *redis.Client
-	Leaf *service.LeafNode
-	Sg   singleflight.Group
+	DB          *gorm.DB
+	RDB         *redis.Client
+	Leaf        *service.LeafNode
+	Sg          singleflight.Group
+	BloomFilter *bloom.BloomFilter
 }
 
 func (h *URLHandler) ShortenURL(c *gin.Context) {
@@ -49,6 +51,7 @@ func (h *URLHandler) ShortenURL(c *gin.Context) {
 		return
 	}
 	h.RDB.Set(c.Request.Context(), "url:"+shortcode, urlJson.Url, 24*time.Hour)
+	h.BloomFilter.AddString(shortcode)
 	c.JSON(http.StatusOK, gin.H{
 		"code":      http.StatusOK,
 		"msg":       "success",
@@ -61,6 +64,10 @@ func (h *URLHandler) Redirect(c *gin.Context) {
 	defer cancel()
 
 	shortcode := c.Param("shortcode")
+	if !h.BloomFilter.TestString(shortcode) {
+		c.String(http.StatusNotFound, "404页面迷路啦～ (被拦截)")
+		return
+	}
 
 	url, err := h.RDB.Get(ctx, "url:"+shortcode).Result()
 	if err == nil {
