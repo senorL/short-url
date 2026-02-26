@@ -12,6 +12,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
+	"golang.org/x/sync/singleflight"
 	"gorm.io/gorm"
 )
 
@@ -19,6 +20,7 @@ type URLHandler struct {
 	DB   *gorm.DB
 	RDB  *redis.Client
 	Leaf *service.LeafNode
+	Sg   singleflight.Group
 }
 
 func (h *URLHandler) ShortenURL(c *gin.Context) {
@@ -69,17 +71,26 @@ func (h *URLHandler) Redirect(c *gin.Context) {
 
 		c.Redirect(http.StatusFound, url)
 	} else {
-		var urlRecord model.UrlRecord
-		result := h.DB.WithContext(ctx).Where("short_code = ?", shortcode).First(&urlRecord)
-		if result.Error != nil {
-			if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-				h.RDB.Set(ctx, "url:"+shortcode, "NULL", 1*time.Minute)
+		v, err, _ := h.Sg.Do(shortcode, func() (interface{}, error) {
+			var urlRecord model.UrlRecord
+			result := h.DB.WithContext(ctx).Where("short_code = ?", shortcode).First(&urlRecord)
+
+			if result.Error != nil {
+				if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+					h.RDB.Set(ctx, "url:"+shortcode, "NULL", 1*time.Minute)
+				}
+				return nil, result.Error
 			}
+			h.RDB.Set(ctx, "url:"+shortcode, urlRecord.OriginalUrl, 24*time.Hour)
+			return urlRecord.OriginalUrl, nil
+		})
+
+		if err != nil {
 			c.String(http.StatusNotFound, "404页面迷路啦～")
 			return
 		}
-		h.RDB.Set(ctx, "url:"+shortcode, urlRecord.OriginalUrl, 24*time.Hour)
-		c.Redirect(http.StatusFound, urlRecord.OriginalUrl)
+
+		c.Redirect(http.StatusFound, v.(string))
 	}
 }
 
