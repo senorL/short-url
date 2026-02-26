@@ -11,7 +11,6 @@ import (
 	"github.com/bits-and-blooms/bloom/v3"
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
-	"golang.org/x/sync/singleflight"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
@@ -51,10 +50,10 @@ func main() {
 	}
 
 	urlHandler := &api.URLHandler{
-		DB:         db,
-		RDB:        rdb,
-		Leaf:       leafNode,
-		BloomFiler: bloomFilter,
+		DB:          db,
+		RDB:         rdb,
+		Leaf:        leafNode,
+		BloomFilter: bloomFilter,
 	}
 
 	r := gin.Default()
