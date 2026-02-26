@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"short-url/internal/model"
+	"short-url/internal/service"
 	"short-url/pkg/base62"
 	"time"
 
@@ -15,8 +16,9 @@ import (
 )
 
 type URLHandler struct {
-	DB  *gorm.DB
-	RDB *redis.Client
+	DB   *gorm.DB
+	RDB  *redis.Client
+	Leaf *service.LeafNode
 }
 
 func (h *URLHandler) ShortenURL(c *gin.Context) {
@@ -25,14 +27,18 @@ func (h *URLHandler) ShortenURL(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": errJson.Error()})
 		return
 	}
-	id, err := h.RDB.Incr(c.Request.Context(), "short_url_id").Result()
+	id, err := h.Leaf.GetID()
 	if err != nil {
-		fmt.Println("Redis 发号失败:", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Redis发号器故障"})
+		fmt.Println("发号失败:", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "发号器故障"})
 		return
 	}
 
-	shortcode := base62.Base62Encode(uint64(id))
+	const magicPrime uint32 = 2654435761
+	const xorMask uint32 = 95831234
+	newID := (uint32(id) * magicPrime) ^ xorMask //确保shortcode看起来随机
+
+	shortcode := base62.Base62Encode(uint64(newID))
 
 	urlRecord := model.UrlRecord{OriginalUrl: urlJson.Url, ShortCode: shortcode}
 	if err := h.DB.Create(&urlRecord).Error; err != nil {

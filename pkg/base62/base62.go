@@ -2,7 +2,7 @@ package base62
 
 import "slices"
 
-const base62Charset = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+const base62Charset = "jV0XyWg9s8cQ5q2e4Z1tIuB7p3DkRzLnfF6hYvTmaNwbMOrAoHlUxJdCPKGiES"
 
 func Base62Encode(id uint64) string {
 	var code []byte

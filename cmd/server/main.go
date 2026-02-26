@@ -5,6 +5,7 @@ import (
 	"short-url/internal/api"
 	"short-url/internal/middleware"
 	"short-url/internal/model"
+	"short-url/internal/service"
 
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
@@ -30,13 +31,19 @@ func main() {
 	db.AutoMigrate(&model.IDGenerator{})
 
 	db.FirstOrCreate(&model.IDGenerator{
-		MaxID: 0,
+		MaxID: 15000000,
 		Step:  1000,
 	}, model.IDGenerator{Model: gorm.Model{ID: 1}})
 
+	leafNode, err := service.NewLeafNode(db)
+	if err != nil {
+		panic("发号器启动失败" + err.Error())
+	}
+
 	urlHandler := &api.URLHandler{
-		DB:  db,
-		RDB: rdb,
+		DB:   db,
+		RDB:  rdb,
+		Leaf: leafNode,
 	}
 
 	r := gin.Default()
