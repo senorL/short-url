@@ -70,7 +70,7 @@ go run cmd/server/main.go
 
 ### 2. 访问/跳转短链接
 
-* **路径**: `GET /:shortcode` (例如: `http://localhost:8080/a`)
+* **路径**: `GET /:shortcode` (例如: `http://localhost:8080/xxx`)
 * **说明**: 在浏览器直接输入该地址，或在 Postman 中访问。系统会自动执行 302 重定向到原始的长链接。
 
 ### 3. 获取短链接列表
