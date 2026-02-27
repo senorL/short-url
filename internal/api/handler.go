@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
+	"log"
 	"net/http"
 	"short-url/internal/model"
 	"short-url/internal/service"
@@ -38,7 +38,7 @@ func (h *URLHandler) ShortenURL(c *gin.Context) {
 	}
 	id, err := h.Leaf.GetID()
 	if err != nil {
-		fmt.Println("发号失败:", err)
+		log.Println("发号失败:", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "发号器故障"})
 		return
 	}
@@ -51,7 +51,7 @@ func (h *URLHandler) ShortenURL(c *gin.Context) {
 
 	urlRecord := model.UrlRecord{OriginalUrl: urlJson.Url, ShortCode: shortcode}
 	if err := h.DB.Create(&urlRecord).Error; err != nil {
-		fmt.Println("数据库保存失败:", err)
+		log.Println("数据库保存失败:", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "数据库保存失败"})
 		return
 	}
@@ -87,7 +87,7 @@ func (h *URLHandler) Redirect(c *gin.Context) {
 			},
 		)
 		if err != nil {
-			fmt.Printf("Kafka失败：%v\n", err)
+			log.Printf("Kafka失败：%v\n", err)
 		}
 	}
 

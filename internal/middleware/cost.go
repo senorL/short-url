@@ -1,7 +1,7 @@
 package middleware
 
 import (
-	"fmt"
+	"log"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -13,6 +13,6 @@ func StatCost() gin.HandlerFunc {
 		c.Next()
 		cost := time.Since(start)
 
-		fmt.Printf("请求 %s | 耗时 %v\n", c.Request.URL.Path, cost)
+		log.Printf("请求 %s | 耗时 %v\n", c.Request.URL.Path, cost)
 	}
 }

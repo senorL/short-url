@@ -3,7 +3,7 @@ package worker
 import (
 	"context"
 	"encoding/json"
-	"fmt"
+	"log"
 	"short-url/internal/model"
 	"time"
 
@@ -22,20 +22,20 @@ func StartLogConsumer(db *gorm.DB) {
 	})
 	defer r.Close()
 
-	fmt.Println("Kafka启动...")
+	log.Println("Kafka启动...")
 	var logBuffer []model.AccessLog
 
 	for {
 		m, err := r.ReadMessage(context.Background())
 		if err != nil {
-			fmt.Printf("读取消息失败: %v\n", err)
+			log.Printf("读取消息失败: %v\n", err)
 			time.Sleep(2 * time.Second)
 			continue
 		}
 
 		var logData model.AccessLog
 		if err := json.Unmarshal(m.Value, &logData); err != nil {
-			fmt.Printf("JSON解析失败: %v\n", err)
+			log.Printf("JSON解析失败: %v\n", err)
 			continue
 		}
 
@@ -43,9 +43,9 @@ func StartLogConsumer(db *gorm.DB) {
 
 		if len(logBuffer) >= 50 {
 			if err := db.Create(&logBuffer).Error; err != nil {
-				fmt.Printf("批量插入SQL失败：%v\n", err)
+				log.Printf("批量插入SQL失败：%v\n", err)
 			} else {
-				fmt.Printf("成功导入%d条数据到SQL\n", len(logBuffer))
+				log.Printf("成功导入%d条数据到SQL\n", len(logBuffer))
 			}
 			logBuffer = nil
 		}

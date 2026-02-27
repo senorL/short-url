@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/bits-and-blooms/bloom/v3"
+	"github.com/gin-contrib/pprof"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 	"github.com/patrickmn/go-cache"
@@ -99,6 +100,7 @@ func main() {
 		KafkaWriter: kafkaW,
 	}
 
+	gin.SetMode(gin.ReleaseMode) // 测试
 	r := gin.Default()
 
 	p := ginprometheus.NewPrometheus("gin")
@@ -113,6 +115,8 @@ func main() {
 	r.GET("/api/links", urlHandler.GetLinks)
 	r.POST("/shorten", middleware.RateLimit(rdb, 10, 5*time.Second), urlHandler.ShortenURL)
 	r.GET("/:shortcode", urlHandler.Redirect)
+
+	pprof.Register(r) // 性能分析
 
 	go worker.StartLogConsumer(db)
 
