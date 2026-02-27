@@ -12,6 +12,7 @@ import (
 	"short-url/internal/middleware"
 	"short-url/internal/model"
 	"short-url/internal/service"
+	"short-url/internal/worker"
 	"syscall"
 	"time"
 
@@ -20,6 +21,7 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/patrickmn/go-cache"
 	"github.com/redis/go-redis/v9"
+	"github.com/segmentio/kafka-go"
 	ginprometheus "github.com/zsais/go-gin-prometheus"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
@@ -59,6 +61,7 @@ func main() {
 
 	db.AutoMigrate(&model.UrlRecord{})
 	db.AutoMigrate(&model.IDGenerator{})
+	db.AutoMigrate(&model.AccessLog{})
 
 	db.FirstOrCreate(&model.IDGenerator{
 		MaxID: 15000000,
@@ -79,12 +82,21 @@ func main() {
 
 	lc := cache.New(5*time.Second, 10*time.Second)
 
+	kafkaW := &kafka.Writer{
+		Addr:                   kafka.TCP("localhost:9092"),
+		Topic:                  "url_access_logs",
+		Async:                  true,
+		AllowAutoTopicCreation: true,
+	}
+	defer kafkaW.Close()
+
 	urlHandler := &api.URLHandler{
 		DB:          db,
 		RDB:         rdb,
 		Leaf:        leafNode,
 		BloomFilter: bloomFilter,
 		LocalCache:  lc,
+		KafkaWriter: kafkaW,
 	}
 
 	r := gin.Default()
@@ -102,7 +114,7 @@ func main() {
 	r.POST("/shorten", middleware.RateLimit(rdb, 10, 5*time.Second), urlHandler.ShortenURL)
 	r.GET("/:shortcode", urlHandler.Redirect)
 
-	// r.Run()
+	go worker.StartLogConsumer(db)
 
 	srv := &http.Server{
 		Addr:    ":8080",

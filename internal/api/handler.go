@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -14,6 +15,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/patrickmn/go-cache"
 	"github.com/redis/go-redis/v9"
+	"github.com/segmentio/kafka-go"
 	"golang.org/x/sync/singleflight"
 	"gorm.io/gorm"
 )
@@ -25,6 +27,7 @@ type URLHandler struct {
 	Sg          singleflight.Group
 	BloomFilter *bloom.BloomFilter
 	LocalCache  *cache.Cache
+	KafkaWriter *kafka.Writer
 }
 
 func (h *URLHandler) ShortenURL(c *gin.Context) {
@@ -67,11 +70,33 @@ func (h *URLHandler) Redirect(c *gin.Context) {
 
 	shortcode := c.Param("shortcode")
 
+	sendLog := func(targetUrl string) {
+		accessLog := model.AccessLog{
+			ShortCode: shortcode,
+			IP:        c.ClientIP(),
+			UserAgent: c.Request.UserAgent(),
+			Timestamp: time.Now(),
+		}
+
+		logString, _ := json.Marshal(accessLog)
+
+		err := h.KafkaWriter.WriteMessages(context.Background(),
+			kafka.Message{
+				Key:   []byte(shortcode),
+				Value: logString,
+			},
+		)
+		if err != nil {
+			fmt.Printf("Kafka失败：%v\n", err)
+		}
+	}
+
 	if valueUrl, ok := h.LocalCache.Get(shortcode); ok {
 		if valueUrl == "NULL" {
 			c.String(http.StatusNotFound, "404页面迷路啦～")
 			return
 		}
+		sendLog(valueUrl.(string))
 		c.Redirect(http.StatusFound, valueUrl.(string))
 		return
 	}
@@ -87,7 +112,7 @@ func (h *URLHandler) Redirect(c *gin.Context) {
 			c.String(http.StatusNotFound, "404页面迷路啦～")
 			return
 		}
-
+		sendLog(url)
 		c.Redirect(http.StatusFound, url)
 	} else {
 		v, err, _ := h.Sg.Do(shortcode, func() (interface{}, error) {
@@ -108,7 +133,7 @@ func (h *URLHandler) Redirect(c *gin.Context) {
 			c.String(http.StatusNotFound, "404页面迷路啦～")
 			return
 		}
-
+		sendLog(v.(string))
 		c.Redirect(http.StatusFound, v.(string))
 	}
 }
