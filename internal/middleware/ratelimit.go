@@ -9,21 +9,31 @@ import (
 )
 
 var rateLimitScript = redis.NewScript(`
-local current = redis.call("INCR", KEYS[1])
-if current == 1 then
-    redis.call("EXPIRE", KEYS[1], ARGV[1])
+local key = KEYS[1]
+local now = tonumber(ARGV[1])
+local window = tonumber(ARGV[2])
+local limit = tonumber(ARGV[3])
+
+local clearBefore = now - window
+
+redis.call('ZREMRANGEBYSCORE', key, 0, clearBefore)
+
+local count = redis.call('ZCARD', key)
+
+if count >= limit then
+    return 0 
+else 
+	redis.call('ZADD', key, now, now)
+    redis.call('EXPIRE', key, window / 1000)
+    return 1 
 end
-if current > tonumber(ARGV[2]) then
-    return 0
-end
-return 1
 `)
 
 func RateLimit(rdb *redis.Client, maxRequests int, window time.Duration) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		redisKey := "rate_limit:" + c.ClientIP()
 		keys := []string{redisKey}
-		values := []interface{}{int(window.Seconds()), maxRequests}
+		values := []interface{}{time.Now().UnixMilli(), window.Milliseconds(), maxRequests}
 		result, err := rateLimitScript.Run(c.Request.Context(), rdb, keys, values...).Int()
 
 		if err != nil {
