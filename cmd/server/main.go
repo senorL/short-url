@@ -1,11 +1,17 @@
 package main
 
 import (
+	"context"
+	"errors"
+	"log"
 	"net/http"
+	"os"
+	"os/signal"
 	"short-url/internal/api"
 	"short-url/internal/middleware"
 	"short-url/internal/model"
 	"short-url/internal/service"
+	"syscall"
 	"time"
 
 	"github.com/bits-and-blooms/bloom/v3"
@@ -72,5 +78,36 @@ func main() {
 	r.POST("/shorten", middleware.RateLimit(rdb, 10, 5*time.Second), urlHandler.ShortenURL)
 	r.GET("/:shortcode", urlHandler.Redirect)
 
-	r.Run()
+	// r.Run()
+
+	srv := &http.Server{
+		Addr:    ":8080",
+		Handler: r.Handler(),
+	}
+
+	go func() {
+		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			log.Fatalf("listen: %s\n", err)
+		}
+	}()
+
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit //接收数据不赋值
+	log.Println("服务关闭中...")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := srv.Shutdown(ctx); err != nil {
+		log.Println("Server Shutdown:", err)
+	}
+
+	if sqlDB, err := db.DB(); err == nil {
+		sqlDB.Close()
+		log.Println("数据库连接已关闭")
+	}
+
+	log.Println("服务关闭")
+
 }
