@@ -12,6 +12,7 @@ import (
 
 	"github.com/bits-and-blooms/bloom/v3"
 	"github.com/gin-gonic/gin"
+	"github.com/patrickmn/go-cache"
 	"github.com/redis/go-redis/v9"
 	"golang.org/x/sync/singleflight"
 	"gorm.io/gorm"
@@ -23,6 +24,7 @@ type URLHandler struct {
 	Leaf        *service.LeafNode
 	Sg          singleflight.Group
 	BloomFilter *bloom.BloomFilter
+	LocalCache  *cache.Cache
 }
 
 func (h *URLHandler) ShortenURL(c *gin.Context) {
@@ -64,6 +66,16 @@ func (h *URLHandler) Redirect(c *gin.Context) {
 	defer cancel()
 
 	shortcode := c.Param("shortcode")
+
+	if valueUrl, ok := h.LocalCache.Get(shortcode); ok {
+		if valueUrl == "NULL" {
+			c.String(http.StatusNotFound, "404页面迷路啦～")
+			return
+		}
+		c.Redirect(http.StatusFound, valueUrl.(string))
+		return
+	}
+
 	if !h.BloomFilter.TestString(shortcode) {
 		c.String(http.StatusNotFound, "404页面迷路啦～ (被拦截)")
 		return

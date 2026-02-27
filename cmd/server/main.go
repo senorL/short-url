@@ -18,6 +18,7 @@ import (
 	"github.com/bits-and-blooms/bloom/v3"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
+	"github.com/patrickmn/go-cache"
 	"github.com/redis/go-redis/v9"
 	ginprometheus "github.com/zsais/go-gin-prometheus"
 	"gorm.io/driver/mysql"
@@ -76,11 +77,14 @@ func main() {
 		bloomFilter.AddString(code)
 	}
 
+	lc := cache.New(5*time.Second, 10*time.Second)
+
 	urlHandler := &api.URLHandler{
 		DB:          db,
 		RDB:         rdb,
 		Leaf:        leafNode,
 		BloomFilter: bloomFilter,
+		LocalCache:  lc,
 	}
 
 	r := gin.Default()
