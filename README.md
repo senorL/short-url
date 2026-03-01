@@ -122,11 +122,16 @@ go tool pprof -http=:8081 http://localhost:8080/debug/pprof/profile?seconds=30
 
 ---
 
-## 目录结构
+## 项目架构
 
+![架构图.png](https://picui.ogmua.cn/s1/2026/03/01/69a419a915085.webp)
+
+[Excalidraw在线链接](https://excalidraw.com/#json=hZGPypTn7YDSSWe-HYGKX,FTKzEQFCxhherb9ayBNoWA)
+
+
+### 目录结构
 * `cmd/server/`: 程序入口
 * `internal/api/`: Gin 路由与 Handler 逻辑
 * `internal/model/`: 数据库模型定义
 * `internal/worker/`: Kafka 消费者批量落盘逻辑
 * `benchmark/`: 自动化压测脚本与 Lua 配置
-
