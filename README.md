@@ -124,9 +124,9 @@ go tool pprof -http=:8081 http://localhost:8080/debug/pprof/profile?seconds=30
 
 ## 项目架构
 
-![架构图.png](https://picui.ogmua.cn/s1/2026/03/01/69a419a915085.webp)
+![短链接架构.png](https://picui.ogmua.cn/s1/2026/03/01/69a444eb3e818.webp)
 
-[Excalidraw在线链接](https://excalidraw.com/#json=hZGPypTn7YDSSWe-HYGKX,FTKzEQFCxhherb9ayBNoWA)
+[Excalidraw在线链接](https://excalidraw.com/#json=Q_aQ1xuV-IHwsL1aDyxm1,CE-TvXZkMxRcwt9n1-JG6Q)
 
 
 ### 目录结构
