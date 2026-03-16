@@ -1,7 +1,7 @@
 # Short URL 
 
 本项目是一个基于 Go 语言实现的高性能分布式短链接系统。通过三级缓存架构与异步日志解耦，系统在单机环境下可支撑 20,000+ QPS 的并发响应。
-![Gemini_Generated_Image_bc7t7kbc7t7kbc7t.png](https://youke.xn--y7xa690gmna.cn/s1/2026/02/21/69988cb029bf6.webp)
+![565e2687b71f8fdcd0f2dd8a8205119c.png](https://i.mji.rip/2026/03/16/565e2687b71f8fdcd0f2dd8a8205119c.png)
 
 ## 核心特性
 
@@ -124,7 +124,7 @@ go tool pprof -http=:8081 http://localhost:8080/debug/pprof/profile?seconds=30
 
 ## 项目架构
 
-![短链接架构.png](https://picui.ogmua.cn/s1/2026/03/01/69a444eb3e818.webp)
+![33e7d18989c899c345c3b8eff9ec8f43.png](https://i.mji.rip/2026/03/16/33e7d18989c899c345c3b8eff9ec8f43.png)
 
 [Excalidraw在线链接](https://excalidraw.com/#json=Q_aQ1xuV-IHwsL1aDyxm1,CE-TvXZkMxRcwt9n1-JG6Q)
 
