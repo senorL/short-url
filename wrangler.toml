@@ -1,0 +1,9 @@
+name = "short-url"
+main = "cloudflare-worker/src/index.js"
+compatibility_date = "2026-10-14"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "short-url-db"
+database_id = "500c9c04-f5c2-40c1-be06-c670f805be17"
+migrations_dir = "cloudflare-worker/migrations"
